@@ -5,7 +5,7 @@ public with sharing class WebServiceHelper {
     // send registration request
     Http http = new Http();
     HttpRequest request = new HttpRequest();
-    request.setEndpoint(webServiceURL);
+    request.setEndpoint('callout:webService_Registration/animals');
     request.setMethod('POST');
     request.setHeader('Content-Type', 'application/json;charset=UTF-8');
     request.setBody('{"name":"' + attendee.Name + '-' + attendee.Email + '}');
