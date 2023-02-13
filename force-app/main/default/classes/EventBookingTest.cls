@@ -1,186 +1,265 @@
 @isTest
-public class EventBookingTest {  
+public class EventBookingTest {
+  @isTest
+  public static void refuseCaseCreationWhenAnAccountIsNotAttachedToACase() {
+    // Given
 
-        @isTest
-        public static void refuseCaseCreationWhenAnAccountIsNotAttachedToACase(){
-            // Given
-    
-            Case request = new Case(Origin = 'Phone',Subject = 'Event Booking', Description = 'Book Spots');
-            
-            // When 
+    Case request = new Case(
+      Origin = 'Phone',
+      Subject = 'Event Booking',
+      Description = 'Book Spots'
+    );
 
-            Test.startTest();
+    // When
 
-            Database.SaveResult result = Database.insert(request, false);
+    Test.startTest();
 
-            Test.stopTest();
+    Database.SaveResult result = Database.insert(request, false);
 
-            // Then
+    Test.stopTest();
 
-            System.assert(!result.isSuccess());
-            System.assert(result.getErrors().size() > 0);
-            System.assertEquals('You cannot create a request without attaching an account',
-            result.getErrors()[0].getMessage());
-        }
-        
-        @isTest
-        public static void refuseCaseCreationWhenNoContactIsAttachedToAnAccount(){
-            // Given
-      
-            Account a1 = new Account(Name = 'Salesforce');
-            insert a1;
+    // Then
 
-            Case request = new Case(Origin = 'Phone',Subject = 'Event Booking', Description = 'Book Spots', AccountId = a1.ID);
-            
-            // When 
+    System.assert(!result.isSuccess());
+    System.assert(result.getErrors().size() > 0);
+    System.assertEquals(
+      'You cannot create a request without attaching an account',
+      result.getErrors()[0].getMessage()
+    );
+  }
 
-            Test.startTest();
+  @isTest
+  public static void refuseCaseCreationWhenNoContactIsAttachedToAnAccount() {
+    // Given
 
-            Database.SaveResult result = Database.insert(request, false);
+    Account a1 = new Account(Name = 'Salesforce');
+    insert a1;
 
-            Test.stopTest();
+    Case request = new Case(
+      Origin = 'Phone',
+      Subject = 'Event Booking',
+      Description = 'Book Spots',
+      AccountId = a1.ID
+    );
 
-            // Then
+    // When
 
-            System.assert(!result.isSuccess());
-            System.assert(result.getErrors().size() > 0);
-            System.assertEquals('You cannot create a request for accounts without contacts',
-            result.getErrors()[0].getMessage());
-        }
-        
-        @isTest
-        public static void bookEventFromPhone(){
-            // Given
-            
-            Account a1 = new Account(Name = 'Salesforce');
-            insert a1;
-            
-            Contact c1 = new Contact(LastName = 'Contact 1', AccountId = a1.ID);
-            insert c1;
-    
-            Contact c2 = new Contact(LastName = 'Contact 2', AccountId = a1.ID);
-            insert c2;
-    
-            Contact c3 = new Contact(LastName = 'Contact 3', AccountId = a1.ID);
-            insert c3;
-    
-            Case request = new Case(Origin = 'Phone',Subject = 'Event Booking', Description = 'Book Spots for Company A1 & their 3 employees', AccountId = a1.ID);
-            
-            // When 
+    Test.startTest();
 
-            Test.startTest();
+    Database.SaveResult result = Database.insert(request, false);
 
-            Database.SaveResult result = Database.insert(request, false);
-            Test.stopTest();
+    Test.stopTest();
 
-            // Then
+    // Then
 
-            System.assert(result.isSuccess());
+    System.assert(!result.isSuccess());
+    System.assert(result.getErrors().size() > 0);
+    System.assertEquals(
+      'You cannot create a request for accounts without contacts',
+      result.getErrors()[0].getMessage()
+    );
+  }
 
+  @isTest
+  public static void registerAttendeesWhenCaseIsClose() {
+    // Given
 
-        }
+    Account a1 = new Account(Name = 'Salesforce');
+    insert a1;
 
+    Contact c1 = new Contact(LastName = 'Contact 1', AccountId = a1.ID);
+    insert c1;
 
-        @isTest
-        public static void refuseEventBookingWhenNumberOfAttendeesIsMoreThanThreeForPhoneCases(){
-            // Given
-            
-            Account a1 = new Account(Name = 'Salesforce');
-            insert a1;
-            
-            Contact c1 = new Contact(LastName = 'Contact 1', AccountId = a1.ID);
-            insert c1;
-    
-            Contact c2 = new Contact(LastName = 'Contact 2', AccountId = a1.ID);
-            insert c2;
-    
-            Contact c3 = new Contact(LastName = 'Contact 3', AccountId = a1.ID);
-            insert c3;
+    Test.setMock(HttpCalloutMock.class, new ExternalSystemServiceMock());
 
-            Contact c4 = new Contact(LastName = 'Contact 4', AccountId = a1.ID);
-            insert c4;
-    
-            Case request = new Case(Origin = 'Phone',Subject = 'Event Booking', Description = 'Book Spots for Company A1 & their 4 employees', AccountId = a1.ID);
-            
-            // When 
+    Case request = new Case(
+      Origin = 'Web',
+      Subject = 'Event Booking',
+      Description = 'Book One Spot for Company A1',
+      AccountId = a1.ID
+    );
+    Database.SaveResult result1 = Database.insert(request, false);
 
-            Test.startTest();
+    Case requestUpdate = request;
 
-            Database.SaveResult result = Database.insert(request, false);
+    requestUpdate.Id = result1.getId();
+    requestUpdate.Status = 'Closed';
 
-            Test.stopTest();
+    // When
 
-            // Then
-            System.assert(!result.isSuccess());
-            System.assert(result.getErrors().size() > 0);
-            System.assertEquals('Phone request are only allowed to have three attendee',
-            result.getErrors()[0].getMessage());
+    Test.startTest();
 
-        }
-        
-        @isTest
-        public static void bookEventFromTheWeb(){
-            // Given
-            
-            Account a1 = new Account(Name = 'Salesforce');
-            insert a1;
-                
-                   
-            Contact c1 = new Contact(LastName = 'Contact 1', AccountId = a1.ID);
-            insert c1;
-    
-            Case request = new Case(Origin = 'Web',Subject = 'Event Booking', Description = 'Book One Spot for Company A1', AccountId = a1.ID);
-            
-            // When 
+    Database.SaveResult result = Database.update(requestUpdate, false);
 
-            Test.startTest();
+    Test.stopTest();
 
-            Database.SaveResult result = Database.insert(request, false);
+    AsyncApexJob job = [
+      SELECT Id, Status, NumberOfErrors
+      FROM AsyncApexJob
+      ORDER BY CreatedDate DESC
+      LIMIT 1
+    ];
 
-            Test.stopTest();
+    while (job.Status == 'Queued' || job.Status == 'Processing') {
+      job = [
+        SELECT Id, Status, NumberOfErrors
+        FROM AsyncApexJob
+        WHERE Id = :job.Id
+      ];
+    }
+    // Then
 
-            // Then
+    System.assertEquals('Completed', job.Status);
+    System.assertEquals(0, job.NumberOfErrors);
+    System.assert(result.isSuccess());
+  }
 
-            System.assert(result.isSuccess());
+  @isTest
+  public static void bookEventFromPhone() {
+    // Given
 
-                
-        } 
-            
-        @isTest
-        public static void refuseEventBookingWhenNumberOfAttendeesIsMoreThanOneForWebCases(){
-            // Given
-            
-            Account a1 = new Account(Name = 'Salesforce');
-            insert a1;
-            
-            Contact c1 = new Contact(LastName = 'Contact 1', AccountId = a1.ID);
-            insert c1;
-    
-            Contact c2 = new Contact(LastName = 'Contact 2', AccountId = a1.ID);
-            insert c2;
-    
-            Contact c3 = new Contact(LastName = 'Contact 3', AccountId = a1.ID);
-            insert c3;
-    
-            Case request = new Case(Origin = 'Web',Subject = 'Event Booking', Description = 'Book Spots for Company A1 & their 3 employees', AccountId = a1.ID);
-            
-            // When 
+    Account a1 = new Account(Name = 'Salesforce');
+    insert a1;
 
-            Test.startTest();
+    Contact c1 = new Contact(LastName = 'Contact 1', AccountId = a1.ID);
+    insert c1;
 
-            Database.SaveResult result = Database.insert(request, false);
+    Contact c2 = new Contact(LastName = 'Contact 2', AccountId = a1.ID);
+    insert c2;
 
-            Test.stopTest();
+    Contact c3 = new Contact(LastName = 'Contact 3', AccountId = a1.ID);
+    insert c3;
 
-            // Then
+    Case request = new Case(
+      Origin = 'Phone',
+      Subject = 'Event Booking',
+      Description = 'Book Spots for Company A1 & their 3 employees',
+      AccountId = a1.ID
+    );
 
-            System.assert(!result.isSuccess());
-            System.assert(result.getErrors().size() > 0);
-            System.assertEquals('Web request are only allowed to have one attendee',
-            result.getErrors()[0].getMessage());
+    // When
 
-                
-        } 
-    
-    
+    Test.startTest();
+
+    Database.SaveResult result = Database.insert(request, false);
+    Test.stopTest();
+
+    // Then
+
+    System.assert(result.isSuccess());
+  }
+
+  @isTest
+  public static void refuseEventBookingWhenNumberOfAttendeesIsMoreThanThreeForPhoneCases() {
+    // Given
+
+    Account a1 = new Account(Name = 'Salesforce');
+    insert a1;
+
+    Contact c1 = new Contact(LastName = 'Contact 1', AccountId = a1.ID);
+    insert c1;
+
+    Contact c2 = new Contact(LastName = 'Contact 2', AccountId = a1.ID);
+    insert c2;
+
+    Contact c3 = new Contact(LastName = 'Contact 3', AccountId = a1.ID);
+    insert c3;
+
+    Contact c4 = new Contact(LastName = 'Contact 4', AccountId = a1.ID);
+    insert c4;
+
+    Case request = new Case(
+      Origin = 'Phone',
+      Subject = 'Event Booking',
+      Description = 'Book Spots for Company A1 & their 4 employees',
+      AccountId = a1.ID
+    );
+
+    // When
+
+    Test.startTest();
+
+    Database.SaveResult result = Database.insert(request, false);
+
+    Test.stopTest();
+
+    // Then
+    System.assert(!result.isSuccess());
+    System.assert(result.getErrors().size() > 0);
+    System.assertEquals(
+      'Phone request are only allowed to have three attendee',
+      result.getErrors()[0].getMessage()
+    );
+  }
+
+  @isTest
+  public static void bookEventFromTheWeb() {
+    // Given
+
+    Account a1 = new Account(Name = 'Salesforce');
+    insert a1;
+
+    Contact c1 = new Contact(LastName = 'Contact 1', AccountId = a1.ID);
+    insert c1;
+
+    Case request = new Case(
+      Origin = 'Web',
+      Subject = 'Event Booking',
+      Description = 'Book One Spot for Company A1',
+      AccountId = a1.ID
+    );
+
+    // When
+
+    Test.startTest();
+
+    Database.SaveResult result = Database.insert(request, false);
+
+    Test.stopTest();
+
+    // Then
+
+    System.assert(result.isSuccess());
+  }
+
+  @isTest
+  public static void refuseEventBookingWhenNumberOfAttendeesIsMoreThanOneForWebCases() {
+    // Given
+
+    Account a1 = new Account(Name = 'Salesforce');
+    insert a1;
+
+    Contact c1 = new Contact(LastName = 'Contact 1', AccountId = a1.ID);
+    insert c1;
+
+    Contact c2 = new Contact(LastName = 'Contact 2', AccountId = a1.ID);
+    insert c2;
+
+    Contact c3 = new Contact(LastName = 'Contact 3', AccountId = a1.ID);
+    insert c3;
+
+    Case request = new Case(
+      Origin = 'Web',
+      Subject = 'Event Booking',
+      Description = 'Book Spots for Company A1 & their 3 employees',
+      AccountId = a1.ID
+    );
+
+    // When
+
+    Test.startTest();
+
+    Database.SaveResult result = Database.insert(request, false);
+
+    Test.stopTest();
+
+    // Then
+
+    System.assert(!result.isSuccess());
+    System.assert(result.getErrors().size() > 0);
+    System.assertEquals(
+      'Web request are only allowed to have one attendee',
+      result.getErrors()[0].getMessage()
+    );
+  }
 }

@@ -1,37 +1,34 @@
 public class ExternalSystemService {
+  //////// DEPRECATED ///////////
   private String webServiceURL;
 
-  public static void registerAttendees(Case r) {
-    for (Account a : [
-      SELECT id, (SELECT id, name, email FROM Contacts)
-      FROM Account
-      WHERE id = :r.AccountId
-    ]) {
-      for (Contact c : a.Contacts) {
-        HttpResponse response = WebServiceHelper.createRegistration(c);
+  private static String webServiceURL = 'https://th-apex-http-callout.herokuapp.com/animals';
 
-        // Parse the JSON response
-        if (response.getStatusCode() != 201) {
-          System.debug(
-            'The status code returned was not expected: ' +
-              response.getStatusCode() +
-              ' ' +
-              response.getStatus()
-          );
-        } else {
-          // Everything went as expected.
-          notifyAttendeeByEmail(c);
-        }
-      }
+  @future(callout=true) // todo
+  public static void broadcastMessage(String message) {
+    HttpResponse response = createRegistration(message);
+
+    // Parse the JSON response
+    if (response.getStatusCode() != 201) {
+      System.debug(
+        'The status code returned was not expected: ' +
+          response.getStatusCode() +
+          ' ' +
+          response.getStatus()
+      );
     }
   }
 
-  public static void notifyAttendeeByEmail(Contact account) {
-    Task tk = new Task();
-    tk.Subject = 'Send Email To' + account.name;
-    tk.Status = 'Open';
-    tk.Priority = 'Normal';
-    tk.WhatId = account.ID;
-    insert tk;
+  public static HttpResponse createRegistration(String messageBody) {
+    // send registration request
+    Http http = new Http();
+    HttpRequest request = new HttpRequest();
+    request.setEndpoint(webServiceURL);
+    // request.setEndpoint('callout:webService_Registration/animals');
+    request.setMethod('POST');
+    request.setHeader('Content-Type', 'application/json;charset=UTF-8');
+    request.setBody(messageBody);
+    // callout exception
+    return http.send(request);
   }
 }
